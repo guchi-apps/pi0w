@@ -1,0 +1,55 @@
+name: Publish verified source release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release-assets
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.7'
+      - run: python -m pip install -r requirements-ci.txt
+      - run: bash scripts/verify.sh
+      - name: Prepare source archive and deployment manifest
+        run: python3 scripts/package_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pi0w-release-assets
+          path: dist/
+          retention-days: 7
+      - name: Publish verified release (Pi deployment is separate)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("version.json"))["version"])')"
+          TAG="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+          else
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+          fi
+          if gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null | grep -qx false; then
+            echo 'Published release is immutable; bump version.json before a new release.'
+            exit 1
+          fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            printf '%s\n' 'Source assets prepared. Pi deployment and hardware verification are pending.' > /tmp/pi0w-release-notes.md
+            gh release create "$TAG" --verify-tag --draft --title "$TAG" --notes-file /tmp/pi0w-release-notes.md
+          fi
+          gh release upload "$TAG" dist/* --clobber
+          gh release edit "$TAG" --draft=false
+          echo '### Source assets prepared; Pi deployment pending (#25)' >> "$GITHUB_STEP_SUMMARY"

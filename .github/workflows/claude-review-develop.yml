@@ -42,7 +42,7 @@ jobs:
     uses: guchi-apps/issue-deck/.github/workflows/reusable-claude-review-develop.yml@workflows/v50
     with:
       prompts-ref: workflows/v50
-      enable-auto-merge: false
+      enable-auto-merge: true
       dependency-check: any
       risk-paths: |
         (^|/)requirements.*\.txt$ :: Python依存変更にはARMv6/Python 3.7の実機互換性確認が必要

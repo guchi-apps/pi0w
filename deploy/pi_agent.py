@@ -343,11 +343,15 @@ def _apply(cfg, manifest, files, state=STATE):
         validate_private_config(stage, name, services)
         requirement_changed = old_hashes.get(name + '/requirements.txt') != new_hashes.get(name + '/requirements.txt')
         if requirement_changed:
-            run(['python3', '-m', 'venv', str(stage / 'venv')], timeout=180)
+            # Only dependency files are public-readable; private config keeps 0600.
+            previous_umask = os.umask(0o022)
             try:
+                run(['python3', '-m', 'venv', str(stage / 'venv')], timeout=180)
                 run(['nice', '-n', '15', str(stage / 'venv/bin/python3'), '-m', 'pip', 'install', '--only-binary=:all:', '--disable-pip-version-check', '--no-cache-dir', '--retries', '2', '--timeout', '30', '-r', str(stage / 'requirements.txt')], timeout=1200)
             except Exception:
                 raise DeployError('dependency_update_failed:' + name)
+            finally:
+                os.umask(previous_umask)
         else:
             (stage / 'venv').symlink_to(source / 'venv', target_is_directory=True)
         sync_tree(stage)

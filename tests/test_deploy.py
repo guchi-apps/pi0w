@@ -106,6 +106,31 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(self.live.resolve(), self.baseline)
         self.assertEqual((self.live / 'venv/marker').read_text(), 'baseline deps')
 
+
+    def test_dependency_permissions_and_private_umask_restore(self):
+        previous = os.umask(0o077)
+        try:
+            agent.apply(self.cfg, *release(), self.state)
+            self.assertEqual((self.live / 'venv').stat().st_mode & 0o777, 0o755)
+            self.assertEqual((self.live / 'venv/marker').stat().st_mode & 0o777, 0o644)
+            self.assertEqual((self.live / '.env').stat().st_mode & 0o777, 0o600)
+            current = os.umask(0o077)
+            self.assertEqual(current, 0o077)
+        finally:
+            os.umask(previous)
+
+    def test_dependency_failure_restores_private_umask(self):
+        previous = os.umask(0o077)
+        try:
+            with patch.object(agent, 'run', side_effect=agent.DeployError('fixture')):
+                with self.assertRaises(agent.DeployError):
+                    agent.apply(self.cfg, *release(), self.state)
+            current = os.umask(0o077)
+            self.assertEqual(current, 0o077)
+            self.assertEqual(self.live.resolve(), self.baseline)
+        finally:
+            os.umask(previous)
+
     def test_dependency_failure_does_not_stop_services_or_change_live(self):
         def fail(args, timeout=300, cwd=None):
             self.command(args, timeout)

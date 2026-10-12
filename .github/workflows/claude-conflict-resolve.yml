@@ -34,6 +34,13 @@ jobs:
             echo "External pull request: privileged automation skipped." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          # Shared detection scans all issue branches; stop if a fork could be selected.
+          foreign="$(gh pr list --repo "$GH_REPO" --base develop --state open --limit 1000 --json isCrossRepository,headRefName --jq '[.[] | select(.isCrossRepository and (.headRefName | test("^issue-[0-9]+$")))] | length')"
+          if [ "$foreign" != 0 ]; then
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            echo "External issue branch exists: automatic conflict resolution skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           permission="$(gh api "repos/$GH_REPO/collaborators/$ACTOR/permission" --jq .permission 2>/dev/null || echo none)"
           allowed=false
           case "$permission" in admin|maintain|write) allowed=true ;; esac

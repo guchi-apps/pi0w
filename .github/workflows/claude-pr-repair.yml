@@ -31,6 +31,14 @@ jobs:
             echo "External pull request: privileged automation skipped." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          target="$(jq -r '.inputs.pr_number // empty' "$GITHUB_EVENT_PATH")"
+          if [ -n "$target" ]; then
+            target_source="$(gh api "repos/$GH_REPO/pulls/$target" --jq '.head.repo.full_name')"
+            if [ "$target_source" != "$GH_REPO" ]; then
+              echo "allowed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           permission="$(gh api "repos/$GH_REPO/collaborators/$ACTOR/permission" --jq .permission 2>/dev/null || echo none)"
           allowed=false
           case "$permission" in admin|maintain|write) allowed=true ;; esac

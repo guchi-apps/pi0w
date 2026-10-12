@@ -14,6 +14,18 @@ In IssueDeck, synchronize repositories first, then Issues. Verify a read-only qu
 
 Use version.json and scripts/bump_version.py for release versions. Publish verified source assets from main. The Pi controller polls only formal Release assets and records successful deployment separately.
 
+## Operation order
+
+Follow this order for each Issue. Do not skip ahead; a missing earlier step is a blocker.
+
+1. Repository resync: synchronize repositories in IssueDeck so the latest repository state and settings are reflected.
+2. Issue resync: synchronize Issues so the board shows the current Issue body, labels and comments.
+3. Plan / implementation: record a plan (small changes may record it and proceed), then implement on an `issue-<number>` branch.
+4. PR / review: open a PR against develop and hand over to the existing CI and automated review. Repair CI or review findings through the shared workflows.
+5. Formal Release: prepare develop-to-main release with version.json and scripts/bump_version.py, then publish verified source assets from main. Only formal Release assets are deployed to the Pi.
+
+Main/release publication and hardware deployment success are separate states; leave the Issue open while runtime verification or manual setup remains.
+
 ## Remaining validation
 
 Account/default-branch settings, branch protections, App/Secrets reachability, board synchronization and a representative end-to-end Issue must be verified. Missing settings are blockers, not successful operation.

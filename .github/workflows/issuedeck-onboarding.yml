@@ -1,0 +1,92 @@
+name: IssueDeck onboarding check
+on:
+  push:
+    branches: [main, develop]
+    paths: ['.github/workflows/**', '.github/labels.json', 'AGENTS.md', 'docs/issuedeck.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  labels-and-settings:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure shared labels without deleting existing labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          jq -c '.labels[]' .github/labels.json | while IFS= read -r item; do
+            name="$(jq -r .name <<< "$item")"
+            color="$(jq -r .color <<< "$item")"
+            description="$(jq -r .description <<< "$item")"
+            gh label create "$name" --repo "$GH_REPO" --color "$color" --description "$description" --force
+          done
+          echo "Shared labels configured." >> "$GITHUB_STEP_SUMMARY"
+      - name: Create repository-scoped configuration token
+        id: configuration-token
+        if: ${{ vars.WORKFLOW_APP_ID != '' }}
+        continue-on-error: true
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.WORKFLOW_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+          permission-administration: write
+          permission-contents: read
+      - name: Configure integration branch and required CI
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.configuration-token.outputs.token || secrets.WORKFLOW_PAT }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::Repository administrator authentication is unavailable; set develop as default and configure branch protections manually."
+            exit 1
+          fi
+          for branch in main develop; do
+            protected="$(gh api "repos/$GH_REPO/branches/$branch" --jq .protected)"
+            if [ "$protected" = true ]; then
+              echo "Existing protection preserved: $branch" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            printf '%s' '{"required_status_checks":{"strict":true,"contexts":["offline-tests (3.7)","offline-tests (3.11)"]},"enforce_admins":false,"required_pull_request_reviews":{"required_approving_review_count":0},"restrictions":null,"required_conversation_resolution":true}' > /tmp/pi0w-branch-protection.json
+            gh api --method PUT "repos/$GH_REPO/branches/$branch/protection" --input /tmp/pi0w-branch-protection.json >/dev/null
+          done
+          gh api --method PATCH "repos/$GH_REPO" -f default_branch=develop -F allow_auto_merge=true >/dev/null
+          echo "Default develop, required offline CI and auto-merge configured." >> "$GITHUB_STEP_SUMMARY"
+      - name: Report configuration presence only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW_APP_ID: ${{ vars.WORKFLOW_APP_ID }}
+          WORKFLOW_APP_PRIVATE_KEY: ${{ secrets.WORKFLOW_APP_PRIVATE_KEY }}
+          WORKFLOW_PAT: ${{ secrets.WORKFLOW_PAT }}
+          PROGRESS_REPORT_SECRET: ${{ secrets.PROGRESS_REPORT_SECRET }}
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch="$(gh api "repos/$GH_REPO" --jq .default_branch)"
+          echo "Default branch: $branch" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$branch" != develop ]; then
+            echo "::warning::Set default branch to develop, then synchronize repositories and Issues in IssueDeck."
+          fi
+          missing=0
+          for key in APP_BASE_URL PROGRESS_REPORT_SECRET; do
+            if [ -z "${!key}" ]; then
+              echo "::warning::$key is unavailable to this repository"
+              missing=1
+            fi
+          done
+          if { [ -z "$WORKFLOW_APP_ID" ] || [ -z "$WORKFLOW_APP_PRIVATE_KEY" ]; } && [ -z "$WORKFLOW_PAT" ]; then
+            echo "::warning::Workflow GitHub authentication is unavailable"
+            missing=1
+          fi
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::notice::Claude credential not present; confirm the configured provider and authentication."
+          fi
+          echo "Core settings missing: $missing" >> "$GITHUB_STEP_SUMMARY"

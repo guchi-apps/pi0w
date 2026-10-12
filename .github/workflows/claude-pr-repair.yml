@@ -1,0 +1,68 @@
+name: Claude PR Repair
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        required: true
+        type: string
+      mode:
+        required: true
+        type: choice
+        options: [ci, conflict]
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          source="$(jq -r --arg repo "$GH_REPO" '.pull_request.head.repo.full_name // .workflow_run.head_repository.full_name // $repo' "$GITHUB_EVENT_PATH")"
+          if [ "$source" != "$GH_REPO" ]; then
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            echo "External pull request: privileged automation skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          target="$(jq -r '.inputs.pr_number // empty' "$GITHUB_EVENT_PATH")"
+          if [ -n "$target" ]; then
+            target_source="$(gh api "repos/$GH_REPO/pulls/$target" --jq '.head.repo.full_name')"
+            if [ "$target_source" != "$GH_REPO" ]; then
+              echo "allowed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          permission="$(gh api "repos/$GH_REPO/collaborators/$ACTOR/permission" --jq .permission 2>/dev/null || echo none)"
+          allowed=false
+          case "$permission" in admin|maintain|write) allowed=true ;; esac
+          case "$ACTOR" in 'issue-deck[bot]'|'github-actions[bot]') allowed=true ;; esac
+          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+          if [ "$allowed" != true ]; then
+            echo "Actor has no verified write access: automation skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+  pr-repair:
+    needs: authorize
+    if: needs.authorize.outputs.allowed == 'true'
+    uses: guchi-apps/issue-deck/.github/workflows/reusable-claude-pr-repair.yml@workflows/v50
+    with:
+      runtime-setup: minimal
+      package-manager: npm
+      prompts-ref: workflows/v50
+      install-dependencies: false
+      verify-commands: 'python3 -m pip install -r requirements-ci.txt を実行後、bash scripts/verify.sh でハードウェアなし検証を行う。ARMv6実機検証は別途記録し、未実施を成功扱いにしない。'
+      pr-number: ${{ inputs.pr_number }}
+      mode: ${{ inputs.mode }}
+    secrets: inherit
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read
+      id-token: write

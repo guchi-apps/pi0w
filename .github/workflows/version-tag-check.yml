@@ -1,0 +1,42 @@
+name: Version tag check
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          source="$(jq -r --arg repo "$GH_REPO" '.pull_request.head.repo.full_name // .workflow_run.head_repository.full_name // $repo' "$GITHUB_EVENT_PATH")"
+          if [ "$source" != "$GH_REPO" ]; then
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            echo "External pull request: privileged automation skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          permission="$(gh api "repos/$GH_REPO/collaborators/$ACTOR/permission" --jq .permission 2>/dev/null || echo none)"
+          allowed=false
+          case "$permission" in admin|maintain|write) allowed=true ;; esac
+          case "$ACTOR" in 'issue-deck[bot]'|'github-actions[bot]') allowed=true ;; esac
+          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+          if [ "$allowed" != true ]; then
+            echo "Actor has no verified write access: automation skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+  version-tag-check:
+    needs: authorize
+    if: needs.authorize.outputs.allowed == 'true'
+    uses: guchi-apps/issue-deck/.github/workflows/reusable-version-tag-check.yml@workflows/v50
+    with:
+      version-file: version.json
+      version-query: .version
+    permissions:
+      contents: read

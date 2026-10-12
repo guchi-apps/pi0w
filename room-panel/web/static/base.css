@@ -1,0 +1,190 @@
+:root {
+  --bg: #eaf6f0;
+  --surface: #ffffff;
+  --text: #22313a;
+  --text-secondary: #93a3a0;
+  --mint: #2fbf8f;
+  --mint-dark: #1f9d73;
+  --mint-soft: #e5f8f0;
+  --gold: #f0c419;
+  --coral: #e6616f;
+  --coral-soft: #fbe9ea;
+  --border: #e6f2ec;
+  --radius: 16px;
+  --shadow: 0 4px 18px rgba(34, 49, 58, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Yu Gothic", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 0 0 2.5rem;
+}
+
+header.app-bar {
+  background: transparent;
+  padding: 1.75rem 1.25rem 0.5rem;
+}
+
+.app-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+header.app-bar h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.all-off-btn.is-active {
+  background: var(--coral-soft);
+  color: var(--coral);
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem 1.5rem;
+}
+
+section.full-width {
+  grid-column: 1 / -1;
+}
+
+h2 {
+  margin: 0 0 0.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+section p {
+  margin: 0.4rem 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+section ul li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+
+section ul li:last-child {
+  border-bottom: none;
+}
+
+.led-hint {
+  font-size: 0.8rem;
+  margin-top: -0.4rem;
+}
+
+/* ラベル+ボタン(または入力欄)を横並びにする汎用行。LCDスクロール速度・CO2閾値入力などで使う */
+.form-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.6rem 0 1rem;
+}
+
+.form-row form {
+  display: inline;
+}
+
+.form-row-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 0.2rem;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--mint-dark);
+  background: var(--mint-soft);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+@media (hover: hover) {
+  button:hover:not(:disabled) {
+    background: #fdf6d9;
+    color: #b8930f;
+  }
+}
+
+button:disabled {
+  color: #fff;
+  background: var(--mint);
+  cursor: default;
+}
+
+.error {
+  color: var(--coral);
+  background: var(--coral-soft);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  display: inline-block;
+}
+
+a {
+  color: var(--mint-dark);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+a:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+  main {
+    grid-template-columns: 1fr;
+    padding: 0 0.75rem;
+  }
+
+  section {
+    padding: 1rem 1.1rem;
+  }
+
+  header.app-bar {
+    padding: 1.25rem 1rem 0.25rem;
+  }
+}
+

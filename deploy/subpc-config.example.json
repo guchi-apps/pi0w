@@ -1,0 +1,9 @@
+{
+  "repository": "guchi-apps/pi0w",
+  "host": "raspberrypi.local",
+  "user": "pi-user",
+  "port": 22,
+  "identity_file": "~/.ssh/pi0w-deploy",
+  "known_hosts": "~/.ssh/pi0w-deploy-known-hosts"
+}
+

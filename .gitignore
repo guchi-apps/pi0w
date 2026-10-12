@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+**/sensors.json
+.venv/
+dist/
+/.shared-context/
+/.shared-prompts/
+/.claude/
+
+

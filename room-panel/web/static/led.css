@@ -1,0 +1,220 @@
+.led-threshold-input {
+  width: 90px;
+  padding: 0.4rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.led-threshold-input:focus {
+  outline: none;
+  border-color: var(--mint);
+  box-shadow: 0 0 0 2px var(--mint-soft);
+}
+
+.led-preview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem 1rem;
+  padding-bottom: 1.1rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.led-preview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  text-align: center;
+}
+
+.led-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--led);
+  border: 2px solid var(--led-border);
+  box-shadow: 0 1px 3px rgba(34, 49, 58, 0.15);
+}
+
+.led-preview-num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
+.led-preview-assign {
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.led-color-led1 { --led: #e5484d; --led-border: #e5484d; --led-soft: #fdeced; --led-text: #ffffff; }
+.led-color-led2 { --led: #f0c419; --led-border: #d9a406; --led-soft: #fdf6d9; --led-text: #6b5300; }
+.led-color-led3 { --led: #2fbf8f; --led-border: #1f9d73; --led-soft: #e5f8f0; --led-text: #ffffff; }
+.led-color-led4 { --led: #ffffff; --led-border: #93a3a0; --led-soft: #f1f4f3; --led-text: #22313a; }
+
+.led-function-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.led-function-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.led-function-row:last-child {
+  border-bottom: none;
+}
+
+.led-function-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.led-function-label {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.led-function-buttons {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.led-assign-group {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.led-function-details summary {
+  cursor: pointer;
+  color: var(--mint-dark);
+  font-size: 0.8rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.led-function-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.led-function-details summary::before {
+  content: "▸ ";
+}
+
+.led-function-details[open] summary::before {
+  content: "▾ ";
+}
+
+.led-function-details summary:hover {
+  color: var(--gold);
+}
+
+.led-function-desc {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.led-assign-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #ffffff;
+  border: 2px solid var(--led-border);
+  color: var(--led-border);
+}
+
+.led-assign-btn.is-active {
+  background: var(--led);
+  color: var(--led-text);
+  border-width: 3px;
+  box-shadow: 0 0 0 3px var(--led-soft);
+}
+
+.led-assign-btn.led-color-led4.is-active {
+  background: var(--led-border);
+  color: #ffffff;
+}
+
+@media (hover: hover) {
+  .led-assign-btn:hover:not(.is-active) {
+    background: var(--led-soft);
+  }
+
+  .led-assign-btn.is-active:hover {
+    filter: brightness(0.92);
+  }
+}
+
+.led-invert-btn {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.led-invert-btn--placeholder {
+  visibility: hidden;
+}
+
+.led-invert-btn.is-active {
+  background: var(--mint-soft);
+  border-color: var(--mint);
+  color: var(--mint-dark);
+}
+
+@media (hover: hover) {
+  .led-invert-btn:hover:not(.is-active) {
+    background: var(--led-soft, #f1f4f3);
+  }
+
+  .led-invert-btn.is-active:hover {
+    filter: brightness(0.96);
+  }
+}
+
+@media (max-width: 600px) {
+  .led-preview {
+    gap: 0.6rem 0.5rem;
+  }
+
+  .led-dot {
+    width: 24px;
+    height: 24px;
+  }
+
+  .led-preview-num {
+    font-size: 0.62rem;
+  }
+
+  .led-preview-assign {
+    font-size: 0.66rem;
+  }
+}
+

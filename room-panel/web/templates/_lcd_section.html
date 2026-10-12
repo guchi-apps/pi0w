@@ -1,0 +1,61 @@
+{% macro lcd_line(text) %}
+{%- if text|length > lcd_width -%}
+{%- set looped = text + (" " * lcd_scroll_gap) -%}
+<div class="lcd-line lcd-line-scroll"><span class="lcd-line-track" style="animation-duration: {{ (looped|length * snapshot.lcd_scroll_interval_sec)|round(1) }}s;">{{ looped }}{{ looped }}</span></div>
+{%- else -%}
+<div class="lcd-line">{{ text }}</div>
+{%- endif -%}
+{% endmacro %}
+{% macro mode_card(mode) %}
+<li class="mode-card">
+  <form method="post" action="{{ url_for('lcd.set_mode', mode_id=mode.id) }}">
+    <button type="submit" class="mode-card-btn" {% if mode.id == snapshot.current_mode %}disabled{% endif %}>
+      <div class="lcd-preview">
+        {% for line1, line2 in mode_previews[mode.id] %}
+        <div class="lcd-screen">
+          {{ lcd_line(line1) }}
+          {{ lcd_line(line2) }}
+        </div>
+        {% endfor %}
+      </div>
+      <span class="mode-card-label">{{ mode.label }}</span>
+    </button>
+  </form>
+</li>
+{% endmacro %}
+<section class="full-width">
+  <h2>LCD表示モード</h2>
+  <p>現在: <strong>{{ modes[snapshot.current_mode].label if snapshot.current_mode in modes else snapshot.current_mode }}</strong></p>
+  <p class="led-hint">実機のLCD(16x2文字)にどう映るかのプレビューです。16文字に収まらない行は実機と同じ速度で横スクロールします。</p>
+  <div class="form-row">
+    <span class="form-row-label">ページ切り替え速度</span>
+    {% for seconds, label in page_presets %}
+    <form method="post" action="{{ url_for('lcd.set_lcd_page_interval', seconds=seconds) }}">
+      <button type="submit" {% if seconds == snapshot.lcd_page_interval_sec %}disabled{% endif %}>{{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  <div class="form-row">
+    <span class="form-row-label">スクロール速度</span>
+    {% for seconds, label in scroll_presets %}
+    <form method="post" action="{{ url_for('lcd.set_lcd_scroll_interval', seconds=seconds) }}">
+      <button type="submit" {% if seconds == snapshot.lcd_scroll_interval_sec %}disabled{% endif %}>{{ label }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% set current = modes[snapshot.current_mode] if snapshot.current_mode in modes else none %}
+  {% set others = modes.values()|rejectattr('id', 'equalto', snapshot.current_mode)|list %}
+  {% if current %}
+  <p class="mode-group-heading">選択中</p>
+  <ul class="mode-list">
+    {{ mode_card(current) }}
+  </ul>
+  {% endif %}
+  <p class="mode-group-heading">選択可能</p>
+  <ul class="mode-list">
+    {% for mode in others %}
+    {{ mode_card(mode) }}
+    {% endfor %}
+  </ul>
+</section>
+

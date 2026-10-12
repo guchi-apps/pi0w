@@ -1,0 +1,66 @@
+<section class="full-width">
+  <h2>LED割当</h2>
+  <p class="led-hint">実機を正面から見たときの並び</p>
+  <div class="led-preview">
+    {% for led_key in led_keys|reverse %}
+    <div class="led-preview-item">
+      <span class="led-dot led-color-{{ led_key }}"></span>
+      <span class="led-preview-num">LED{{ led_key[-1] }}</span>
+      <span class="led-preview-assign">{{ led_sources[snapshot.led_assignment[led_key]].label if snapshot.led_assignment.get(led_key) in led_sources else snapshot.led_assignment.get(led_key) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="led-function-list">
+    {% for source in led_sources.values() %}
+    <div class="led-function-row">
+      <div class="led-function-header">
+        <span class="led-function-label">{{ source.label }}</span>
+        <div class="led-function-buttons">
+          <div class="led-assign-group">
+            {% for led_key in led_keys|reverse %}
+            {% set is_active = source.id == snapshot.led_assignment.get(led_key) %}
+            <form method="post" action="{{ url_for('led.set_led', led_key=led_key, source_id='always_off' if is_active else source.id) }}">
+              <button type="submit" class="led-assign-btn led-color-{{ led_key }}{% if is_active %} is-active{% endif %}" title="{% if is_active %}LED{{ led_key[-1] }}をこの機能から外して消灯する{% else %}LED{{ led_key[-1] }}に割り当てる{% endif %}">
+                {% if is_active %}✓{% else %}{{ led_key[-1] }}{% endif %}
+              </button>
+            </form>
+            {% endfor %}
+          </div>
+          {% if source.id != 'heartbeat' %}
+          {% set is_inverted = snapshot.led_invert.get(source.id, False) %}
+          <form method="post" action="{{ url_for('led.set_led_invert', source_id=source.id) }}">
+            <button type="submit" class="led-invert-btn{% if is_inverted %} is-active{% endif %}" title="点灯と消灯を反転させる">
+              反転{% if is_inverted %}: ON{% else %}: OFF{% endif %}
+            </button>
+          </form>
+          {% else %}
+          <span class="led-invert-btn led-invert-btn--placeholder" aria-hidden="true">反転: OFF</span>
+          {% endif %}
+        </div>
+      </div>
+      <details class="led-function-details">
+        <summary>詳細を見る</summary>
+        <p class="led-function-desc">{{ source.description }}</p>
+        {% if source.id == 'co2_alert' %}
+        <form method="post" action="{{ url_for('led.set_co2_alert_threshold') }}" class="form-row">
+          <label class="form-row-label" for="co2-threshold-input">閾値(ppm)</label>
+          <input
+            type="number"
+            id="co2-threshold-input"
+            name="ppm"
+            min="{{ co2_threshold_min }}"
+            max="{{ co2_threshold_max }}"
+            step="10"
+            value="{{ snapshot.co2_alert_threshold }}"
+            class="led-threshold-input"
+          >
+          <button type="submit">設定</button>
+        </form>
+        {% endif %}
+      </details>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+

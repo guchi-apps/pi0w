@@ -1,0 +1,32 @@
+{
+  "name": "ROOM Panel",
+  "short_name": "ROOM Panel",
+  "description": "LCD表示モード・LED割当を切り替えるroom-panelのコントロールパネル",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eaf6f0",
+  "theme_color": "#2fbf8f",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
+

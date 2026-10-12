@@ -1,0 +1,13 @@
+[Unit]
+Description=Deploy published Pi releases via LAN SSH
+ConditionPathExists=%h/.config/pi0w-deploy/config.json
+ConditionPathExists=%h/.local/state/pi0w-deploy/initialized
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/apps/pi0w
+ExecStart=/usr/bin/python3 %h/apps/pi0w/deploy/controller.py poll
+TimeoutStartSec=50min
+UMask=0077
+NoNewPrivileges=true
+

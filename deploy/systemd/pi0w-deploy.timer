@@ -1,0 +1,13 @@
+[Unit]
+Description=Poll Pi release updates
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+Persistent=true
+RandomizedDelaySec=30
+Unit=pi0w-deploy.service
+
+[Install]
+WantedBy=timers.target
+

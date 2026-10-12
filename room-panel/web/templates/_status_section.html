@@ -1,0 +1,58 @@
+<section>
+  <h2>MyRoom 最新状況</h2>
+  {% if snapshot.myroom_reading %}
+  <ul>
+    <li>取得日時(API): {{ snapshot.myroom_reading.datetime_str or "-" }}</li>
+    <li>温度: {{ snapshot.myroom_reading.temperature }}</li>
+    <li>湿度: {{ snapshot.myroom_reading.humidity }}</li>
+    <li>CO2: {{ snapshot.myroom_reading.co2 }}</li>
+    <li>気圧: {{ snapshot.myroom_reading.pressure }}</li>
+  </ul>
+  {% else %}
+  <p>データ未取得</p>
+  {% endif %}
+  <p>最終取得成功: {{ snapshot.myroom_last_success_at | fmt_ts }}</p>
+  {% if snapshot.myroom_last_error %}<p class="error">最終エラー: {{ snapshot.myroom_last_error }}</p>{% endif %}
+</section>
+
+<section>
+  <h2>uptime-kuma 最新状況</h2>
+  {% if snapshot.uptime_snapshot %}
+  <ul>
+    <li>UP: {{ snapshot.uptime_snapshot.up_count }}</li>
+    <li>DOWN: {{ snapshot.uptime_snapshot.down_count }}</li>
+    <li>PENDING: {{ snapshot.uptime_snapshot.pending_count }}</li>
+    {% if snapshot.uptime_snapshot.down_monitor_names %}
+    <li>DOWN中: {{ snapshot.uptime_snapshot.down_monitor_names | join(', ') }}</li>
+    {% endif %}
+  </ul>
+  {% else %}
+  <p>データ未取得</p>
+  {% endif %}
+  <p>最終取得成功: {{ snapshot.uptime_last_success_at | fmt_ts }}</p>
+  {% if snapshot.uptime_last_error %}<p class="error">最終エラー: {{ snapshot.uptime_last_error }}</p>{% endif %}
+</section>
+
+<section>
+  <h2>システム状態</h2>
+  {% if snapshot.system_stats %}
+  <ul>
+    <li>CPU使用率: {{ "%.1f"|format(snapshot.system_stats.cpu_percent) if snapshot.system_stats.cpu_percent is not none else "-" }}%</li>
+    <li>メモリ使用率: {{ "%.1f"|format(snapshot.system_stats.mem_percent) if snapshot.system_stats.mem_percent is not none else "-" }}%
+      ({{ "%.0f"|format(snapshot.system_stats.mem_used_mb) if snapshot.system_stats.mem_used_mb is not none else "-" }}MB /
+      {{ "%.0f"|format(snapshot.system_stats.mem_total_mb) if snapshot.system_stats.mem_total_mb is not none else "-" }}MB)</li>
+    <li>ディスク使用率: {{ "%.1f"|format(snapshot.system_stats.disk_percent) if snapshot.system_stats.disk_percent is not none else "-" }}%
+      ({{ "%.1f"|format(snapshot.system_stats.disk_used_gb) if snapshot.system_stats.disk_used_gb is not none else "-" }}GB /
+      {{ "%.1f"|format(snapshot.system_stats.disk_total_gb) if snapshot.system_stats.disk_total_gb is not none else "-" }}GB)</li>
+  </ul>
+  {% else %}
+  <p>データ未取得</p>
+  {% endif %}
+  <p>最終取得成功: {{ snapshot.system_stats_last_success_at | fmt_ts }}</p>
+  {% if snapshot.system_stats_last_error %}<p class="error">最終エラー: {{ snapshot.system_stats_last_error }}</p>{% endif %}
+</section>
+
+<section class="full-width">
+  <p><a href="{{ url_for('api_status') }}">/api/status (JSON)</a></p>
+</section>
+

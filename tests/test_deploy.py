@@ -272,6 +272,21 @@ class ControllerTests(unittest.TestCase):
             download.assert_not_called()
             remote.assert_called_once_with({'repository':'example/pi'},'status')
 
+    def test_poll_records_time_result_and_clears_stale_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'state.json').write_text(json.dumps({'status':'failed','failure_reason':'ssh_or_helper_failed','version':'0.1.0','last_success_at':'original'}))
+            argv = ['controller','--state-dir',tmp,'poll']
+            with patch.object(sys,'argv',argv), patch.object(controller,'load_config',return_value={}), patch.object(controller,'poll',return_value={'status':'unchanged','version':'0.1.0'}):
+                self.assertEqual(controller.main(),0)
+            state = json.loads((Path(tmp) / 'state.json').read_text())
+            self.assertEqual((state['status'],state['failure_reason'],state['last_poll_result'],state['last_poll_version']),('unchanged',None,'unchanged','0.1.0'))
+            self.assertEqual(state['last_success_at'],'original')
+            self.assertIn('last_poll_at',state)
+            with patch.object(sys,'argv',argv), patch.object(controller,'load_config',return_value={}), patch.object(controller,'poll',side_effect=controller.DeployError('offline')):
+                self.assertEqual(controller.main(),1)
+            state = json.loads((Path(tmp) / 'state.json').read_text())
+            self.assertEqual(state['last_poll_result'],'failed:offline')
+
     def test_manual_rollback_pauses_future_polls(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(sys,'argv',['controller','--state-dir',tmp,'rollback']), patch.object(controller,'load_config',return_value={}), patch.object(controller,'remote',return_value={'status':'rolled_back'}):
             self.assertEqual(controller.main(),0)

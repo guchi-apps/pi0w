@@ -176,6 +176,9 @@ def main():
                 if state.get('automatic_poll_paused'):
                     raise DeployError('automatic_poll_paused_after_rollback')
                 response = poll(cfg, state, args.state_dir)
+                # Unchanged polls must also clear an older failure and leave a trace of when/what was checked.
+                state.update(status=response['status'], failure_reason=None, last_poll_at=datetime.datetime.now(datetime.timezone.utc).isoformat(), last_poll_result=response['status'], last_poll_version=state.get('version'))
+                save(path, state)
             else:
                 response = remote(cfg, args.action)
                 if args.action == 'rollback':
@@ -184,7 +187,10 @@ def main():
             print(json.dumps(response))
         except Exception as exc:
             reason = str(exc) if isinstance(exc, DeployError) else type(exc).__name__
-            state.update(status='failed', failure_reason=reason, last_attempt_at=datetime.datetime.now(datetime.timezone.utc).isoformat())
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            state.update(status='failed', failure_reason=reason, last_attempt_at=now)
+            if args.action == 'poll':
+                state.update(last_poll_at=now, last_poll_result='failed:' + reason)
             save(path, state)
             print(json.dumps({'status': 'failed', 'reason': reason}))
             return 1

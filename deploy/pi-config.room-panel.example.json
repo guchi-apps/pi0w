@@ -1,0 +1,12 @@
+{
+  "apps": {
+    "myroom-api": {
+      "path": "/opt/myroom-pi",
+      "services": ["switchbot-co2.service", "aircon-myroom.service"]
+    },
+    "room-panel": {
+      "path": "/opt/room-panel",
+      "services": ["room-panel.service"]
+    }
+  }
+}

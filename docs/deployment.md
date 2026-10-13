@@ -21,7 +21,7 @@ helperやsudoersの更新はroot管理者による初回/個別操作で、リ�
 
 初回bootstrapは既存 `/opt/myroom-pi` を `/var/lib/pi0w-deploy/baseline/myroom-api` に保持し、
 元のパスをsymlinkにする。既存systemd定義・ユーザー・enabled状態は変更しない。
-root設定で明示したアプリ以外は触らない。room-panelは初期設定に含めない。
+root設定で明示したアプリ以外は触らない。room-panelは既定の設定雛形に含めず、導入確認後に下記の手順で加える。
 
 更新は別ディレクトリに準備し、`.env`、`sensors.json`、履歴、その他非ソースは既存の実体へリンクする。
 依存が変わる場合だけ、新しいvenvへPiに適合するwheelを導入する。
@@ -69,6 +69,10 @@ cd ~/apps/pi0w && python3 deploy/bootstrap_remote.py
 必要なら**Pi**で `/etc/pi0w-deploy.json` を調整する。room-panelの既存配置とsystemdサービスを
 事前確認できた場合のみ、`apps`へ`room-panel`、path `/opt/room-panel`、services
 `["room-panel.service"]`を追加して再度bootstrapする。未導入のpanelを勝手にサービス化しない。
+追加後の形は `deploy/pi-config.room-panel.example.json` を参照する（手動編集時の参照用。
+bootstrap/install-agentはこのファイルを使わず、導入済みの `/etc/pi0w-deploy.json` も上書きしない）。
+追加後は、panelの `.env`（`MYROOM_API_TOKEN`等）と `venv` が `/opt/room-panel` にあることが必要で、
+以降はpanelの修正も正式Releaseのたびに配布される。panelのみの変更ではpanelだけが再起動される。
 
 ```bash
 cd / && sudoedit /etc/pi0w-deploy.json

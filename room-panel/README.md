@@ -78,6 +78,13 @@ PI_HOST=raspberrypi.local PI_USER=pi-user PI_SSH_KEY=~/.ssh/pi0w REMOTE_DIR=room
 
 > **WSL2 からは実行できません**（`raspberrypi.local` / `192.168.1.x` に到達不可）。Windows PowerShell / Git Bash など、LANに直接出られる環境で実行してください。OpenSSH 形式の秘密鍵が必要です。
 
+#### GitHubの正式Releaseから自動反映
+
+サブPCの配布機構（[docs/deployment.md](../docs/deployment.md)）の対象に `room-panel` を加えると、
+パネルの修正も正式ReleaseのたびにサブPC経由でPiへ反映されます（`deploy.sh` の手動転送は不要）。
+対象に加える前の初回導入（`install.sh`・`.env`・`venv`）は従来どおり手動で行います。
+`.env` と `venv` は配布で上書きされず、反映後は `/healthz` で起動を確認し、失敗時は旧版へ戻ります。
+
 WinSCP 等でGUIから手動アップロードしたい場合は、`venv` / `__pycache__` / `.env` / `dev.sh` を除く一式（`web/` 配下も含む）を転送する。
 
 ### 2. `.env` の作成

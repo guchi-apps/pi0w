@@ -50,7 +50,7 @@ jobs:
   release:
     needs: authorize
     if: needs.authorize.outputs.allowed == 'true'
-    uses: guchi-apps/issue-deck/.github/workflows/reusable-release-develop-to-main.yml@workflows/v50
+    uses: guchi-apps/issue-deck/.github/workflows/reusable-release-develop-to-main.yml@workflows/v51
     with:
       version-file: version.json
       version-query: .version

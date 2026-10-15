@@ -40,7 +40,7 @@ jobs:
     needs: authorize
     # 共有版はmainへのマージでDone/closeする。Piは配布・実機検証後に完了を記録する。
     if: ${{ needs.authorize.outputs.allowed == 'true' && !(github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.base.ref == 'main') }}
-    uses: guchi-apps/issue-deck/.github/workflows/reusable-issue-labels.yml@workflows/v51
+    uses: guchi-apps/issue-deck/.github/workflows/reusable-issue-labels.yml@workflows/v52
     permissions:
       issues: write
       pull-requests: write

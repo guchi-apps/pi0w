@@ -14,10 +14,13 @@ def bump(version, root=ROOT):
     path = root / "version.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     current = tuple(int(x) for x in data["version"].split("."))
-    if tuple(int(x) for x in version.split(".")) <= current:
-        raise ValueError("Release version must increase")
-    data["version"] = version
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    target = tuple(int(x) for x in version.split("."))
+    if target < current:
+        raise ValueError("Release version must not decrease")
+    # 同じ版での再実行（公開準備の再試行）は版ファイルを変えず、二重バンプにしない。
+    if target > current:
+        data["version"] = version
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     notes = root / ".github" / "release-notes.md"
     notes.parent.mkdir(parents=True, exist_ok=True)
     notes.write_text("# v" + version + "\n\n" + os.getenv("RELEASE_CHANGELOG", "") +

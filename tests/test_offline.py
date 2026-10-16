@@ -94,6 +94,10 @@ class OfflineTests(unittest.TestCase):
                 bump_version.bump("0.2.0", root)
             self.assertEqual(json.loads((root / "version.json").read_text())["version"], "0.2.0")
             self.assertIn("usage", (root / ".github/release-notes.md").read_text())
+            with patch.dict(os.environ, {"RELEASE_CHANGELOG": "retry", "RELEASE_USAGE": "usage"}):
+                bump_version.bump("0.2.0", root)
+            self.assertEqual(json.loads((root / "version.json").read_text())["version"], "0.2.0")
+            self.assertIn("retry", (root / ".github/release-notes.md").read_text())
             with self.assertRaises(ValueError):
                 bump_version.bump("0.1.0", root)
             with self.assertRaises(ValueError):

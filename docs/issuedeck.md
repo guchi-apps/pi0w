@@ -1,6 +1,6 @@
 # IssueDeck integration
 
-Shared callers are pinned to workflows/v50. Supported operations: planning/implementation, issue progress, code review, CI repair, review repair, conflict resolution, PR repair, version checks and develop-to-main release preparation.
+Shared callers are pinned to workflows/v52. Supported operations: planning/implementation, issue progress, code review, CI repair, review repair, conflict resolution, PR repair, version checks and develop-to-main release preparation.
 
 GitHub-hosted offline CI uses Python 3.7/3.11. The subPC uses the generic IssueDeck launcher; repository registration and release deployment timer have already been configured. Full review, integration verification and planning review use the application's dispatcher settings. Mac/Xcode verification is not applicable.
 
@@ -25,6 +25,12 @@ Follow this order for each Issue. Do not skip ahead; a missing earlier step is a
 5. Formal Release: prepare develop-to-main release with version.json and scripts/bump_version.py, then publish verified source assets from main. Only formal Release assets are deployed to the Pi.
 
 Main/release publication and hardware deployment success are separate states; leave the Issue open while runtime verification or manual setup remains.
+
+## Release caller (candidate / finalize)
+
+The release caller accepts `candidate_request` and `finalize_request` (workflow_dispatch string inputs, empty by default) and passes them as `candidate-request` / `finalize-request`, so IssueDeck can start "create and verify candidate" then finalize. Adopted shared tag: `workflows/v52` (published; contains the candidate/finalize inputs, absent in v50, and the IssueDeck#4650 fix that stops a develop sync push from starting a legacy bump, absent in v51). The tag number alone is not the evidence; re-check these two points when changing the tag. `version.json` is the only version file (no changelog or iOS version to sync); `scripts/bump_version.py` accepts the same version again so a finalize retry does not double-bump, and rejects a lower one.
+
+Rollout records are kept separately: develop caller merge (this PR), main caller reflection, and the end-to-end run (candidate, finalize, main, deploy, sync PR, next candidate). Only the first is covered by this change; the others need a human-approved real release and are tracked in IssueDeck#4651. Until main has the new caller, the old flow runs and nothing is published without the existing approval.
 
 ## Remaining validation
 

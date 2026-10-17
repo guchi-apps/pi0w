@@ -130,6 +130,107 @@ rollback自体が失敗した場合はjournalを消さず失敗扱いにし、�
 保持したbaseline・旧releaseは自動削除しない。失敗した準備ディレクトリだけは除去する。
 空き容量は管理者が確認し、live/previous/設定・履歴のリンク元は削除しない。
 
+## 既存サブPCのcontroller更新（導入済みcloneの更新手順）
+
+`deploy/controller.py`・`deploy/systemd/`・`deploy/install-subpc.sh`はリリースarchiveに含まれない
+（`scripts/package_release.py`がdeploy配下を除外する）。正式Releaseを公開しても、導入済みサブPCの
+`~/apps/pi0w`は自動では更新されない。**deploy配下を変更したReleaseは、各サブPCで次の手順により
+cloneを正式Releaseの固定タグへ更新して初めて有効になる。** `last_poll_*`の記録と過去失敗表示の解除も
+この更新後のcontrollerが行う。
+
+- 更新対象は `~/apps/pi0w`（このリポジトリのclone）だけ。IssueDeckのgeneric pollerや
+  `~/apps/issue-deck`の更新・再起動は不要で、混同しない。
+- Pi側の収集service・timerは止めない。Piへの転送・再起動も起こさない（変更なしのpollは何もしない）。
+- 追従するのは**公開済みの正式Releaseのタグ**だけ。develop・main HEAD・任意のブランチへは更新しない。
+- 設定（`~/.config/pi0w-deploy/`）と状態（`~/.local/state/pi0w-deploy/`）はcloneの外にあり、更新で変わらない。
+  以降のコマンド出力・貼り付けにconfig/stateの全文、IP・ユーザー名・指紋は含めない（下記のとおりキーを絞って表示する）。
+
+### 手順（サブPC）
+
+1. 対象タグを決め、公開済みの正式Releaseで、mainに含まれることを確認する。
+
+```bash
+cd ~/apps/pi0w && export TAG=vX.Y.Z && gh release view "$TAG" --json tagName,isDraft,isPrerelease --jq '[.tagName,.isDraft,.isPrerelease]' && git fetch --tags origin main && git merge-base --is-ancestor "refs/tags/$TAG" origin/main && echo ok
+```
+
+`false,false`かつ`ok`でなければ中止する。続けて、現在の版より新しい（downgradeでない）ことも確認する。
+
+```bash
+cd ~/apps/pi0w && git merge-base --is-ancestor HEAD "refs/tags/$TAG" && echo ok
+```
+
+2. 実行中のpollとの競合を防ぐ。タイマーだけ止め、実行中の`pi0w-deploy.service`の終了を待つ。
+   pollは最大50分かかり得る。`inactive`になるまで繰り返す。
+
+```bash
+systemctl --user stop pi0w-deploy.timer && systemctl --user is-active pi0w-deploy.service
+```
+
+手動で`controller.py`を実行中の端末が無いことも確認する（controllerは`state-dir/lock`で排他制御する）。
+
+3. 現在のコミットとローカル変更を保全する（失敗時の復旧に使う）。
+
+```bash
+cd ~/apps/pi0w && echo "旧コミット: $(git rev-parse HEAD)" && git branch "backup/pre-$TAG-$(date +%Y%m%d%H%M)" && git status --short
+```
+
+出力が空でなければローカル変更がある。破棄せず、一意なメッセージでstashして控える。
+
+```bash
+cd ~/apps/pi0w && git stash push -u -m "pi0w-pre-$TAG" && git stash list
+```
+
+4. cloneを固定タグへ更新する。`reset --hard`は使わない。detached HEADで固定する。
+
+```bash
+cd ~/apps/pi0w && git switch --detach "refs/tags/$TAG" && git rev-parse HEAD && python3 -m py_compile deploy/controller.py
+```
+
+stashしたローカル変更は、内容を確認してから必要な分だけ`git stash apply`で戻す（deploy配下を
+手元で変えていた場合は、Release側の内容を正としてマージ要否を判断する）。
+
+5. タイマー・unitを戻す。`install-subpc.sh`はunitを再配置して`daemon-reload`し、タイマーを有効化する
+   （Piには触れない）。冪等なので、unitが変わっていなくても実行してよい。
+
+```bash
+cd ~/apps/pi0w && bash deploy/install-subpc.sh
+```
+
+### 更新後の確認（サブPC）
+
+更新直後に1回pollを実行する（変更なしなら転送・再起動はしない）。次回のタイマーpollを待ってもよい。
+
+```bash
+cd ~/apps/pi0w && python3 deploy/controller.py poll
+```
+
+```bash
+jq '{status,last_poll_at,last_poll_result,last_poll_version,last_success_at,failure_reason}' ~/.local/state/pi0w-deploy/state.json
+```
+
+更新後のcontrollerが動いていれば、`last_poll_at`が更新後の時刻になり、`last_poll_result`が
+`unchanged`または`deployed`になる。成功したpollでは過去の`failure_reason`が消える。
+`last_poll_*`が出ない場合は旧controllerのままなので、`git rev-parse HEAD`がタグのコミットか、
+`systemctl --user cat pi0w-deploy.service`のExecStartが`~/apps/pi0w/deploy/controller.py`かを確認する。
+`unchanged`なら`last_success_at`は変わらず、Piの収集serviceの`ActiveEnterTimestamp`も変わらない。
+
+### 失敗時の復旧
+
+- `git switch --detach`が失敗した（ローカル変更との競合など）: cloneは変わっていない。手順3のstashを
+  やり直してから再実行する。
+- 更新後の`poll`/`status`が失敗した: タイマーを止めたまま、控えた旧コミットへ戻す。
+
+```bash
+cd ~/apps/pi0w && git switch --detach <手順3で控えた旧コミット> && bash deploy/install-subpc.sh
+```
+
+  failure_reasonのコードを確認し、原因が分かるまで更新を繰り返さない。
+- 戻した後は、stashがあれば`git stash list`で確認して`git stash apply`する。成功を確認してからだけ
+  `git stash drop`・`backup/*`ブランチの削除を行う。
+- Pi側の配布版の切り戻しは別操作（`controller.py rollback`）。cloneの更新失敗では実行しない。
+- `install-subpc.sh`が`initialized`不在などで止まった場合はタイマーが停止したままなので、
+  原因を直すか`systemctl --user start pi0w-deploy.timer`で必ず再開する。
+
 ## 継続運用・再起動・障害の実機確認手順（#9）
 
 実機確認はオフラインCI（`scripts/verify.sh`）とは別に、サブPC/Piの管理者が手動で行う。
@@ -192,7 +293,8 @@ cd / && uptime && free -m && df -h /opt /var/lib && systemctl show -p MemoryCurr
 | --- | --- |
 | 正式Release配布（ARMv6/Python 3.7.3、BLE `--require-all`成功） | 2026-10-12 v0.1.1で確認（ユーザー実行結果） |
 | 以降の版の配布 | サブPCの`state.json`上、v0.1.3の配布成功（2026-10-12 13:48 UTC、変更アプリなし）を確認。Pi側の`hardware_verification`は`not_run`で、実機のBLE/API確認は未実施 |
-| 定期pollの追跡 | 2026-10-13時点のサブPCでtimerは5分周期で動作。06:43 UTCに`ssh_or_helper_failed`が1回記録され、その後のpollは成功したが失敗表示が残っていた→`last_poll_*`の記録と失敗表示の解除をコードへ追加（本PR、未デプロイ） |
+| 定期pollの追跡 | 2026-10-13時点のサブPCでtimerは5分周期で動作。06:43 UTCに`ssh_or_helper_failed`が1回記録され、その後のpollは成功したが失敗表示が残っていた→`last_poll_*`の記録と失敗表示の解除をコードへ追加（未デプロイ） |
+| 既存サブPCのcontroller更新（正式Release公開後） | **未確認**。上記「既存サブPCのcontroller更新」の手順で`~/apps/pi0w`を新タグへ更新し、次回pollで`last_poll_*`が記録されることを#9で確認する。公開前のレビューはコードと手順のみで、実機での確認とは分ける |
 | 全BLEターゲットの継続取得・履歴保持 | 未確認 |
 | CPU/メモリ/ディスク影響 | 未測定 |
 | Pi/サブPC再起動後の自動復帰 | 未確認 |

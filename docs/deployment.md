@@ -98,6 +98,8 @@ subpc構成管理の連携PRを取り込む場合も、設定・bootstrap・初�
 serviceはprivate設定と初回poll成功のinitialized markerを両方確認する。
 タイマーを先に配置しても、初回の明示した配布が成功するまでは自動実行しない。
 
+既存の導入済みサブPCの更新は「既存サブPCのcontroller更新」節を参照する。
+
 ## 状態・ログ・切り戻し（サブPC）
 
 ```bash
@@ -133,7 +135,7 @@ rollback自体が失敗した場合はjournalを消さず失敗扱いにし、�
 ## 既存サブPCのcontroller更新（導入済みcloneの更新手順）
 
 `deploy/controller.py`・`deploy/systemd/`・`deploy/install-subpc.sh`はリリースarchiveに含まれない
-（`scripts/package_release.py`がdeploy配下を除外する）。正式Releaseを公開しても、導入済みサブPCの
+（`scripts/package_release.py`はアプリソースと`version.json`だけを含める）。正式Releaseを公開しても、導入済みサブPCの
 `~/apps/pi0w`は自動では更新されない。**deploy配下を変更したReleaseは、各サブPCで次の手順により
 cloneを正式Releaseの固定タグへ更新して初めて有効になる。** `last_poll_*`の記録と過去失敗表示の解除も
 この更新後のcontrollerが行う。
@@ -190,7 +192,9 @@ stashしたローカル変更は、内容を確認してから必要な分だけ
 手元で変えていた場合は、Release側の内容を正としてマージ要否を判断する）。
 
 5. タイマー・unitを戻す。`install-subpc.sh`はunitを再配置して`daemon-reload`し、タイマーを有効化する
-   （Piには触れない）。冪等なので、unitが変わっていなくても実行してよい。
+   （Piへは読み取り専用の`status`問い合わせをSSHで1回行うだけで、収集service・timerは止めず、転送・再起動もしない）。
+   冪等なので、unitが変わっていなくても実行してよい。`status`が失敗するとstate.jsonに`failed`が記録され、
+   タイマーを再開する前に止まる（下記「失敗時の復旧」）。`jq`が無い環境では`python3 -m json.tool`で代用する。
 
 ```bash
 cd ~/apps/pi0w && bash deploy/install-subpc.sh
@@ -218,12 +222,20 @@ jq '{status,last_poll_at,last_poll_result,last_poll_version,last_success_at,fail
 
 - `git switch --detach`が失敗した（ローカル変更との競合など）: cloneは変わっていない。手順3のstashを
   やり直してから再実行する。
-- 更新後の`poll`/`status`が失敗した: タイマーを止めたまま、控えた旧コミットへ戻す。
+- 更新後の`poll`/`status`/`py_compile`が失敗した: `install-subpc.sh`でタイマーが再開済みの場合があるため、
+  先にタイマーを止めてserviceの終了を待ち（`inactive`が出ればよい。終了コード3は正常）、旧コミットへ戻す。
+  タイマーと手動pollが重なると、lock取得に失敗してトレースバックで終了する（stateは書かれない）。
+
+```bash
+systemctl --user stop pi0w-deploy.timer; systemctl --user is-active pi0w-deploy.service
+```
 
 ```bash
 cd ~/apps/pi0w && git switch --detach <手順3で控えた旧コミット> && bash deploy/install-subpc.sh
 ```
 
+  失敗したpollは`last_poll_result`が`failed:<コード>`になる。rollback後の`automatic_poll_paused`中は
+  `automatic_poll_paused_after_rollback`で失敗するので、`controller.py resume`が必要かを確認する。
   failure_reasonのコードを確認し、原因が分かるまで更新を繰り返さない。
 - 戻した後は、stashがあれば`git stash list`で確認して`git stash apply`する。成功を確認してからだけ
   `git stash drop`・`backup/*`ブランチの削除を行う。

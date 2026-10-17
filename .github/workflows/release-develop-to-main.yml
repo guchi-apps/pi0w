@@ -14,6 +14,16 @@ on:
         required: false
         type: boolean
         default: false
+      # 新方式（候補作成→公開準備→本番反映）の起動入口。issue-deckの画面から渡る
+      # （guchi-apps/issue-deck#4604）。手動実行では空のまま。
+      candidate_request:
+        required: false
+        type: string
+        default: ""
+      finalize_request:
+        required: false
+        type: string
+        default: ""
   push:
     branches: [develop]
     paths: [version.json]
@@ -50,13 +60,15 @@ jobs:
   release:
     needs: authorize
     if: needs.authorize.outputs.allowed == 'true'
-    uses: guchi-apps/issue-deck/.github/workflows/reusable-release-develop-to-main.yml@workflows/v50
+    uses: guchi-apps/issue-deck/.github/workflows/reusable-release-develop-to-main.yml@workflows/v52
     with:
       version-file: version.json
       version-query: .version
       bump-command: 'python3 scripts/bump_version.py "$NEW_VERSION"'
       bump-kind: ${{ github.event_name == 'workflow_dispatch' && inputs.bump_kind || '' }}
       allow-failed-deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_failed_deploy == true }}
+      candidate-request: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_request || '' }}
+      finalize-request: ${{ github.event_name == 'workflow_dispatch' && inputs.finalize_request || '' }}
     secrets: inherit
     permissions:
       contents: write

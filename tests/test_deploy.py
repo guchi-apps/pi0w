@@ -224,6 +224,94 @@ class AgentTests(unittest.TestCase):
 
 
 
+class RoomPanelTests(unittest.TestCase):
+    """room-panelをmyroom-apiと並べて配布対象にした場合の挙動（実機は未確認）。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.state = self.root / 'state'
+        self.state.mkdir()
+        self.cfg = {'apps': {}}
+        self.baselines = {}
+        for name, service in (('myroom-api', 'switchbot-co2.service'), ('room-panel', 'room-panel.service')):
+            baseline = self.state / 'baseline' / name
+            baseline.mkdir(parents=True)
+            (baseline / '.env').write_text('PRIVATE=1\n')
+            (baseline / 'venv').mkdir()
+            (baseline / 'venv/marker').write_text('baseline deps')
+            live = self.root / name
+            live.symlink_to(baseline)
+            self.baselines[name] = baseline
+            self.cfg['apps'][name] = {'path': str(live), 'services': [service]}
+        self.commands = []
+        for target, kwargs in (
+            ('run', {'side_effect': self.command}),
+            ('unit_state', {'return_value': {'LoadState': 'loaded', 'ActiveState': 'active', 'Result': 'success', 'ExecMainStatus': '0'}}),
+            ('validate_private_config', {}),
+        ):
+            patcher = patch.object(agent, target, **kwargs)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        patcher = patch.object(agent, 'health')
+        self.health_mock = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def command(self, args, timeout=300, cwd=None):
+        self.commands.append(args)
+        return ''
+
+    def contents(self, panel=b'print("panel")\n'):
+        return {
+            'myroom-api/switchbot_to_myroom.py': b'print("api")\n',
+            'myroom-api/requirements.txt': b'requests==2.31.0\n',
+            'room-panel/app.py': panel,
+            'room-panel/requirements.txt': b'flask==2.2.5\n',
+        }
+
+    def test_panel_is_deployed_with_private_config_and_dependencies_preserved(self):
+        manifest, files = release(contents=self.contents())
+        agent.apply(self.cfg, manifest, files, self.state)
+        live = Path(self.cfg['apps']['room-panel']['path'])
+        self.assertEqual((live / 'app.py').read_bytes(), b'print("panel")\n')
+        self.assertEqual((live / '.env').resolve(), self.baselines['room-panel'] / '.env')
+
+    def test_panel_only_change_restarts_only_panel(self):
+        first, files = release(contents=self.contents())
+        agent.apply(self.cfg, first, files, self.state)
+        self.commands.clear()
+        changed = self.contents(b'print("panel 2")\n')
+        second, files2 = release('0.2.0', changed, 'b' * 40)
+        result = agent.apply(self.cfg, second, files2, self.state)
+        self.assertEqual(result['changed_apps'], ['room-panel'])
+        flat = [unit for args in self.commands for unit in args]
+        self.assertIn('room-panel.service', flat)
+        self.assertNotIn('switchbot-co2.service', flat)
+        self.assertFalse(any(args[0] in ('nice', 'python3') for args in self.commands))
+        self.assertTrue((Path(self.cfg['apps']['room-panel']['path']) / 'venv').is_symlink())
+
+    def test_failed_panel_health_rolls_back_to_previous_panel(self):
+        first, files = release(contents=self.contents())
+        agent.apply(self.cfg, first, files, self.state)
+        live = Path(self.cfg['apps']['room-panel']['path'])
+        old = live.resolve()
+        second, files2 = release('0.2.0', self.contents(b'print("broken")\n'), 'b' * 40)
+        self.health_mock.side_effect = agent.DeployError('panel_health')
+        with self.assertRaises(agent.DeployError):
+            agent.apply(self.cfg, second, files2, self.state)
+        self.assertEqual(live.resolve(), old)
+        self.assertEqual((live / 'app.py').read_bytes(), b'print("panel")\n')
+
+    def test_panel_archive_rejects_private_config(self):
+        manifest, files = release(contents=self.contents())
+        extra = tarfile.TarInfo('room-panel/.env')
+        extra.size = 1
+        bad = archive(manifest, files, extra)
+        with self.assertRaises(agent.DeployError):
+            agent.unpack(bad, hashlib.sha256(bad).hexdigest())
+
+
 class ControllerTests(unittest.TestCase):
     def test_draft_prerelease_or_non_semver_is_never_selected(self):
         for release_info in ({'tag_name':'v0.1.0','draft':True,'published_at':'now'}, {'tag_name':'v0.1.0','prerelease':True,'published_at':'now'}, {'tag_name':'develop','published_at':'now'}, {'tag_name':'v0.1.0'}):
@@ -271,6 +359,21 @@ class ControllerTests(unittest.TestCase):
             self.assertEqual(controller.poll({'repository':'example/pi'}, state, Path(tmp))['status'],'unchanged')
             download.assert_not_called()
             remote.assert_called_once_with({'repository':'example/pi'},'status')
+
+    def test_poll_records_time_result_and_clears_stale_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'state.json').write_text(json.dumps({'status':'failed','failure_reason':'ssh_or_helper_failed','version':'0.1.0','last_success_at':'original'}))
+            argv = ['controller','--state-dir',tmp,'poll']
+            with patch.object(sys,'argv',argv), patch.object(controller,'load_config',return_value={}), patch.object(controller,'poll',return_value={'status':'unchanged','version':'0.1.0'}):
+                self.assertEqual(controller.main(),0)
+            state = json.loads((Path(tmp) / 'state.json').read_text())
+            self.assertEqual((state['status'],state['failure_reason'],state['last_poll_result'],state['last_poll_version']),('unchanged',None,'unchanged','0.1.0'))
+            self.assertEqual(state['last_success_at'],'original')
+            self.assertIn('last_poll_at',state)
+            with patch.object(sys,'argv',argv), patch.object(controller,'load_config',return_value={}), patch.object(controller,'poll',side_effect=controller.DeployError('offline')):
+                self.assertEqual(controller.main(),1)
+            state = json.loads((Path(tmp) / 'state.json').read_text())
+            self.assertEqual(state['last_poll_result'],'failed:offline')
 
     def test_manual_rollback_pauses_future_polls(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(sys,'argv',['controller','--state-dir',tmp,'rollback']), patch.object(controller,'load_config',return_value={}), patch.object(controller,'remote',return_value={'status':'rolled_back'}):

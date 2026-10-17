@@ -34,7 +34,7 @@ jobs:
   version-tag-check:
     needs: authorize
     if: needs.authorize.outputs.allowed == 'true'
-    uses: guchi-apps/issue-deck/.github/workflows/reusable-version-tag-check.yml@workflows/v50
+    uses: guchi-apps/issue-deck/.github/workflows/reusable-version-tag-check.yml@workflows/v52
     with:
       version-file: version.json
       version-query: .version

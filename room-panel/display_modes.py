@@ -94,7 +94,69 @@ def _render_vps(snapshot: AppStateSnapshot) -> List[LcdPage]:
     return [(line1, line2)]
 
 
-_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+def _pct(value, missing: str) -> str:
+    # 取得できなかった枠は0%と区別できる文字にする(残り0%と誤読させない)
+    return missing if value is None else f"{value}%"
+
+
+def _remaining_short(resets_at) -> str:
+    if resets_at is None:
+        return "--"
+    sec = max(0, int(resets_at - time.time()))
+    if sec < 3600:
+        return f"{sec // 60}m"
+    if sec < 86400:
+        return f"{sec // 3600}h"
+    return f"{sec // 86400}d"
+
+
+def _remaining_long(resets_at) -> str:
+    if resets_at is None:
+        return "--"
+    sec = max(0, int(resets_at - time.time()))
+    if sec < 3600:
+        return f"{sec // 60}m"
+    return f"{sec // 3600}h{(sec % 3600) // 60:02d}m"
+
+
+def _fit16(*candidates: str) -> str:
+    # 16文字に収まる最初の候補を使う。どれも収まらなければ最後の候補(横スクロールされる)。
+    for text in candidates:
+        if len(text) <= 16:
+            return text
+    return candidates[-1]
+
+
+def _render_ai_quota(snapshot: AppStateSnapshot) -> List[LcdPage]:
+    quota = snapshot.ai_quota
+    # 直近の取得が失敗している間は、前回の値を残りとして見せない。
+    if quota is None or snapshot.ai_quota_last_error:
+        return [("AI QUOTA", "UNAVAILABLE")]
+    if (
+        quota.claude_5h_remaining is None
+        and quota.claude_week_remaining is None
+        and quota.codex_week_remaining is None
+    ):
+        return [("AI QUOTA", "UNAVAILABLE")]
+
+    c5 = _pct(quota.claude_5h_remaining, "--")
+    cw = _pct(quota.claude_week_remaining, "--")
+    xw = _pct(quota.codex_week_remaining, "N/A")
+    page1 = (
+        _fit16(f"CL 5h:{c5} 1w:{cw}", f"CL5h:{c5} 1w:{cw}", f"CL5h:{c5}1w:{cw}"),
+        f"CX 1w:{xw}",
+    )
+    page2 = (
+        f"CL5h reset {_remaining_long(quota.claude_5h_resets_at)}",
+        _fit16(
+            f"CL1w {_remaining_short(quota.claude_week_resets_at)} "
+            f"CX1w {_remaining_short(quota.codex_week_resets_at)}"
+        ),
+    )
+    return [page1, page2]
+
+
+_WEEKDAYS =("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
 def _render_clock(snapshot: AppStateSnapshot) -> List[LcdPage]:
@@ -115,6 +177,9 @@ MODES: Dict[str, LcdMode] = {
         id="system", label="システム状態(CPU/メモリ/ディスク)", render=_render_system
     ),
     "vps": LcdMode(id="vps", label="VPSの状態(CPU/メモリ/ディスク)", render=_render_vps),
+    "ai_quota": LcdMode(
+        id="ai_quota", label="AI利用枠(Claude/Codex)", render=_render_ai_quota
+    ),
     "clock": LcdMode(id="clock", label="時計", render=_render_clock),
 }
 

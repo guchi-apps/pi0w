@@ -96,6 +96,7 @@ WinSCP 等でGUIから手動アップロードしたい場合は、`venv` / `__p
 | `MYROOM_API_TOKEN` | MyRoom `/api/latest` はBearer認証必須。myroomの`JWT_SECRET_KEY`で署名した長期トークンを発行して設定する（Googleログイン経由のトークンは`JWT_EXPIRE_HOURS`＝既定7日で失効するため非推奨） |
 | `UPTIME_KUMA_BASE_URL` / `UPTIME_KUMA_SLUG` | uptime-kumaのステータスページURL（`https://kuma.example.com/status/<slug>` の `<slug>` 部分） |
 | `VPS_STATUS_TOKEN` | VPS状態API（`https://vps.example.invalid/internal/vps-status`）はBearer認証必須。VPS側の管理リポジトリ の `vps-status-api.conf`（`VPS_STATUS_API_TOKEN`）と同じ値を設定する |
+| `AI_QUOTA_URL` / `AI_QUOTA_TOKEN` | AI利用枠(Claude/Codex)の表示用。ops-dashboardの `GET /api/ai-usage` のURLと、読み取りAPI用のBearerトークン(`OPS_API_TOKEN`)を設定する。このトークンはホスト・監視・GitHub・1Passwordの読み取りにも使える広い権限のため、`.env` の権限(600)を守る。未設定ならこのモードは「UNAVAILABLE」を表示する。取得間隔は `AI_QUOTA_POLL_INTERVAL_SEC`(既定300秒) |
 | `LED1_PIN`〜`LED3_PIN` | 実配線に合わせて変更 |
 | `LCD_I2C_ADDRESS` | `i2cdetect -y 1` の結果に合わせて変更 |
 
@@ -115,6 +116,7 @@ sudo nano /opt/room-panel/.env   # 上記の必須項目を設定
 sudo /opt/room-panel/venv/bin/python3 /opt/room-panel/app.py --check-myroom
 sudo /opt/room-panel/venv/bin/python3 /opt/room-panel/app.py --check-uptime-kuma
 sudo /opt/room-panel/venv/bin/python3 /opt/room-panel/app.py --check-vps-status
+sudo /opt/room-panel/venv/bin/python3 /opt/room-panel/app.py --check-ai-quota
 # uptime-kumaのレスポンス形状を確認したい場合（バージョン差異の調査用）
 sudo /opt/room-panel/venv/bin/python3 /opt/room-panel/app.py --dump-raw-uptime-kuma
 ```
@@ -134,7 +136,7 @@ journalctl -u room-panel.service -f
 | メソッド | パス | 内容 |
 |---|---|---|
 | GET | `/` | 状況確認・モード切替・LED割当変更 |
-| POST | `/mode/<mode_id>` | LCD表示モード切替（`myroom` / `uptime_kuma` / `system` / `vps` / `clock`） |
+| POST | `/mode/<mode_id>` | LCD表示モード切替（`myroom` / `uptime_kuma` / `system` / `vps` / `ai_quota` / `clock`） |
 | POST | `/led/<led_key>/<source_id>` | 指定LED（`led1`/`led2`/`led3`）の割当を切替 |
 | GET | `/api/status` | 現在の状態JSON |
 | GET | `/healthz` | 200固定応答。**このアプリ自体をuptime-kumaの監視対象に追加できる** |

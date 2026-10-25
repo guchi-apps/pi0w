@@ -5,6 +5,7 @@ import threading
 import time
 from typing import Dict, List
 
+import ai_quota_client
 import display_modes
 import fake_sources
 import myroom_client
@@ -30,6 +31,7 @@ def poll_loop(
     next_uptime_poll = 0.0
     next_system_stats_poll = 0.0
     next_vps_status_poll = 0.0
+    next_ai_quota_poll = 0.0
     next_lcd_refresh = 0.0
     next_lcd_scroll = 0.0
     page_index = -1
@@ -54,6 +56,10 @@ def poll_loop(
             if now >= next_vps_status_poll:
                 _poll_vps_status(config, state)
                 next_vps_status_poll = now + config.vps_status_poll_interval_sec
+
+            if now >= next_ai_quota_poll:
+                _poll_ai_quota(config, state)
+                next_ai_quota_poll = now + config.ai_quota_poll_interval_sec
 
             snapshot = state.snapshot()
 
@@ -203,6 +209,23 @@ def _poll_vps_status(config: AppConfig, state: StateStore) -> None:
         state.update_vps_stats_error(str(exc))
         if config.debug:
             print(f"[poll_vps_status] {exc}", file=sys.stderr)
+
+
+def _poll_ai_quota(config: AppConfig, state: StateStore) -> None:
+    if not config.fake_sources and not (config.ai_quota_url and config.ai_quota_token):
+        return  # 未設定時はスキップ(エラー扱いにしない)
+    try:
+        if config.fake_sources:
+            quota = fake_sources.fake_ai_quota()
+        else:
+            quota = ai_quota_client.fetch_quota(
+                config.ai_quota_url, config.ai_quota_token, config.http_timeout
+            )
+        state.update_ai_quota_success(quota)
+    except Exception as exc:
+        state.update_ai_quota_error(str(exc))
+        if config.debug:
+            print(f"[poll_ai_quota] {exc}", file=sys.stderr)
 
 
 def _apply_led_sources(

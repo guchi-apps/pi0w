@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 
+import ai_quota_client
 import config as config_module
 import fake_sources
 import myroom_client
@@ -84,6 +85,22 @@ def _run_check_vps_status(config: config_module.AppConfig) -> int:
     return 0
 
 
+def _run_check_ai_quota(config: config_module.AppConfig) -> int:
+    try:
+        if config.fake_sources:
+            quota = fake_sources.fake_ai_quota()
+        else:
+            quota = ai_quota_client.fetch_quota(
+                config.ai_quota_url, config.ai_quota_token, config.http_timeout
+            )
+    except Exception as exc:
+        print(f"AI利用枠取得エラー: {exc}", file=sys.stderr)
+        return 1
+    print(f"claude_5h={quota.claude_5h_remaining} claude_week={quota.claude_week_remaining} "
+          f"codex_week={quota.codex_week_remaining}")
+    return 0
+
+
 def main() -> int:
     config = config_module.load_config()
 
@@ -95,6 +112,8 @@ def main() -> int:
         return _run_dump_raw_uptime_kuma(config)
     if config.check_vps_status:
         return _run_check_vps_status(config)
+    if config.check_ai_quota:
+        return _run_check_ai_quota(config)
 
     led_pins = {
         "led1": config.led1_pin,

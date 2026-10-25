@@ -39,9 +39,9 @@ jobs:
   review:
     needs: authorize
     if: needs.authorize.outputs.allowed == 'true'
-    uses: guchi-apps/issue-deck/.github/workflows/reusable-claude-review-develop.yml@workflows/v53
+    uses: guchi-apps/issue-deck/.github/workflows/reusable-claude-review-develop.yml@workflows/v55
     with:
-      prompts-ref: workflows/v53
+      prompts-ref: workflows/v55
       enable-auto-merge: true
       dependency-check: any
       risk-paths: |

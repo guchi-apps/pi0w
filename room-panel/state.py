@@ -39,6 +39,18 @@ class VpsStats:
 
 
 @dataclass(frozen=True)
+class AiQuota:
+    # 残り割合(0-100の整数)。取得できなかった枠はNone(0%とは区別する)。
+    claude_5h_remaining: Optional[int] = None
+    claude_week_remaining: Optional[int] = None
+    codex_week_remaining: Optional[int] = None
+    # リセット時刻(epoch秒)。不明ならNone。
+    claude_5h_resets_at: Optional[float] = None
+    claude_week_resets_at: Optional[float] = None
+    codex_week_resets_at: Optional[float] = None
+
+
+@dataclass(frozen=True)
 class AppStateSnapshot:
     current_mode: str
     led_assignment: Dict[str, str]
@@ -63,6 +75,10 @@ class AppStateSnapshot:
     vps_stats: Optional[VpsStats]
     vps_stats_last_success_at: Optional[float]
     vps_stats_last_error: Optional[str]
+
+    ai_quota: Optional[AiQuota]
+    ai_quota_last_success_at: Optional[float]
+    ai_quota_last_error: Optional[str]
 
     last_tick_at: Optional[float]
 
@@ -101,6 +117,9 @@ class StateStore:
         self._vps_stats: Optional[VpsStats] = None
         self._vps_stats_last_success_at: Optional[float] = None
         self._vps_stats_last_error: Optional[str] = None
+        self._ai_quota: Optional[AiQuota] = None
+        self._ai_quota_last_success_at: Optional[float] = None
+        self._ai_quota_last_error: Optional[str] = None
         self._last_tick_at: Optional[float] = None
 
     def snapshot(self) -> AppStateSnapshot:
@@ -125,6 +144,9 @@ class StateStore:
                 vps_stats=self._vps_stats,
                 vps_stats_last_success_at=self._vps_stats_last_success_at,
                 vps_stats_last_error=self._vps_stats_last_error,
+                ai_quota=self._ai_quota,
+                ai_quota_last_success_at=self._ai_quota_last_success_at,
+                ai_quota_last_error=self._ai_quota_last_error,
                 last_tick_at=self._last_tick_at,
             )
 
@@ -195,6 +217,16 @@ class StateStore:
     def update_vps_stats_error(self, error: str) -> None:
         with self._lock:
             self._vps_stats_last_error = error
+
+    def update_ai_quota_success(self, quota: AiQuota) -> None:
+        with self._lock:
+            self._ai_quota = quota
+            self._ai_quota_last_success_at = time.time()
+            self._ai_quota_last_error = None
+
+    def update_ai_quota_error(self, error: str) -> None:
+        with self._lock:
+            self._ai_quota_last_error = error
 
     def mark_tick(self) -> None:
         with self._lock:

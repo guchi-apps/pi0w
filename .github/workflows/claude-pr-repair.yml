@@ -50,11 +50,11 @@ jobs:
   pr-repair:
     needs: authorize
     if: needs.authorize.outputs.allowed == 'true'
-    uses: guchi-apps/issue-deck/.github/workflows/reusable-claude-pr-repair.yml@workflows/v53
+    uses: guchi-apps/issue-deck/.github/workflows/reusable-claude-pr-repair.yml@workflows/v55
     with:
       runtime-setup: minimal
       package-manager: npm
-      prompts-ref: workflows/v53
+      prompts-ref: workflows/v55
       install-dependencies: false
       verify-commands: 'python3 -m pip install -r requirements-ci.txt を実行後、bash scripts/verify.sh でハードウェアなし検証を行う。ARMv6実機検証は別途記録し、未実施を成功扱いにしない。'
       pr-number: ${{ inputs.pr_number }}

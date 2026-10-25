@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import time
 
-from state import MyRoomReading, UptimeKumaSnapshot, VpsStats
+from state import AiQuota, MyRoomReading, UptimeKumaSnapshot, VpsStats
 
 # FAKE_SOURCES=1 のとき、myroom/uptime-kuma/VPS状態APIへの実通信を行わず、
 # OK/NG/UNKNOWNの全パターンを一定周期で巡回するダミーデータを返す。
@@ -12,6 +12,20 @@ from state import MyRoomReading, UptimeKumaSnapshot, VpsStats
 _myroom_cycle = itertools.cycle(["fresh", "stale", "error"])
 _uptime_cycle = itertools.cycle(["all_up", "one_down", "error"])
 _vps_cycle = itertools.cycle(["normal", "high_load", "error"])
+_ai_quota_cycle = itertools.cycle(["normal", "low", "partial", "error"])
+
+
+def fake_ai_quota() -> AiQuota:
+    state = next(_ai_quota_cycle)
+    if state == "error":
+        raise RuntimeError("[fake] simulated ai quota fetch error")
+    now = time.time()
+    if state == "normal":
+        return AiQuota(75, 57, 97, now + 2 * 3600 + 43 * 60, now + 14 * 3600, now + 5 * 86400)
+    if state == "low":
+        return AiQuota(12, 8, 30, now + 40 * 60, now + 20 * 3600, now + 2 * 86400)
+    # 一部の提供元だけ取得できなかったケース(Codex側が取得不可)
+    return AiQuota(75, 57, None, now + 2 * 3600, now + 14 * 3600, None)
 
 
 def fake_myroom_reading(device_id: int) -> MyRoomReading:

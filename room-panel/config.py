@@ -41,6 +41,10 @@ class AppConfig:
     vps_status_token: str
     vps_status_poll_interval_sec: int
 
+    ai_quota_url: str
+    ai_quota_token: str
+    ai_quota_poll_interval_sec: int
+
     lcd_i2c_address: int
     lcd_i2c_port: int
     lcd_refresh_interval_sec: int
@@ -69,6 +73,7 @@ class AppConfig:
     check_uptime_kuma: bool
     dump_raw_uptime_kuma: bool
     check_vps_status: bool
+    check_ai_quota: bool
 
 
 def load_config(argv: Optional[list] = None) -> AppConfig:
@@ -96,6 +101,11 @@ def load_config(argv: Optional[list] = None) -> AppConfig:
         action="store_true",
         help="VPS状態APIを1回だけ取得して結果を表示し終了する",
     )
+    parser.add_argument(
+        "--check-ai-quota",
+        action="store_true",
+        help="AI利用枠APIを1回だけ取得して結果を表示し終了する",
+    )
     args = parser.parse_args(argv)
 
     return AppConfig(
@@ -114,6 +124,10 @@ def load_config(argv: Optional[list] = None) -> AppConfig:
         vps_status_url=os.getenv("VPS_STATUS_URL", ""),
         vps_status_token=os.getenv("VPS_STATUS_TOKEN", ""),
         vps_status_poll_interval_sec=_int_env("VPS_STATUS_POLL_INTERVAL_SEC", 60),
+        ai_quota_url=os.getenv("AI_QUOTA_URL", ""),
+        ai_quota_token=os.getenv("AI_QUOTA_TOKEN", ""),
+        # 提供元の制限が厳しくサーバー側も5分キャッシュのため、Pi Zero Wでは長めに取る
+        ai_quota_poll_interval_sec=_int_env("AI_QUOTA_POLL_INTERVAL_SEC", 300),
         lcd_i2c_address=_int_env("LCD_I2C_ADDRESS", 0x27),
         lcd_i2c_port=_int_env("LCD_I2C_PORT", 1),
         lcd_refresh_interval_sec=_int_env("LCD_REFRESH_INTERVAL_SEC", 2),
@@ -139,6 +153,7 @@ def load_config(argv: Optional[list] = None) -> AppConfig:
         check_uptime_kuma=args.check_uptime_kuma,
         dump_raw_uptime_kuma=args.dump_raw_uptime_kuma,
         check_vps_status=args.check_vps_status,
+        check_ai_quota=args.check_ai_quota,
     )
 
 

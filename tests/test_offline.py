@@ -126,6 +126,39 @@ class OfflineTests(unittest.TestCase):
             self.assertEqual(manifest["hardware_verification"], "not_run")
             self.assertEqual(manifest["version"], "0.1.0")
 
+    def test_ai_quota_mode_shows_unavailable_instead_of_zero(self):
+        import ai_quota_client
+        import display_modes
+
+        usage = {"providers": [
+            {"id": "claude", "status": "ok", "windows": [
+                {"label": "5時間", "usedPercent": 25, "resetsAt": "2026-10-25T10:30:00.492352+00:00", "windowSeconds": 18000},
+                {"label": "週間", "usedPercent": 100, "resetsAt": None, "windowSeconds": 604800}]},
+            {"id": "chatgpt", "status": "error", "windows": []},
+        ]}
+        quota = ai_quota_client.parse_usage(usage)
+        self.assertEqual((quota.claude_5h_remaining, quota.claude_week_remaining), (75, 0))
+        self.assertIsNone(quota.codex_week_remaining)
+
+        def snapshot(q, error=None):
+            store = StateStore("ai_quota", {}, 2, 2, 1000)
+            if q is not None:
+                store.update_ai_quota_success(q)
+            if error:
+                store.update_ai_quota_error(error)
+            return store.snapshot()
+
+        render = display_modes.MODES["ai_quota"].render
+        pages = render(snapshot(quota))
+        self.assertEqual(pages[0], ("CL 5h:75% 1w:0%", "CX 1w:N/A"))
+        for page in pages:
+            for line in page:
+                self.assertTrue(line.isascii())
+        self.assertEqual(render(snapshot(None)), [("AI QUOTA", "UNAVAILABLE")])
+        self.assertEqual(render(snapshot(quota, "HTTP 500")), [("AI QUOTA", "UNAVAILABLE")])
+        with self.assertRaises(ai_quota_client.AiQuotaError):
+            ai_quota_client.parse_usage([])
+
 
 if __name__ == "__main__":
     unittest.main()
